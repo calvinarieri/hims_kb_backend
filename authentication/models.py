@@ -58,7 +58,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     objects = UserManager()
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['email', 'password']
+    REQUIRED_FIELDS = ['password','last_name', 'first_name']
 
     def __str__(self):
         return self.email
@@ -79,7 +79,7 @@ class Product(models.Model):
 
 
 class ProductVersion(models.Model):
-    id = models.models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='versions')
     version = models.CharField(max_length=50)
     description = models.TextField(blank=True, null=True)
