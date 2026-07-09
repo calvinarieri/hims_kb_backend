@@ -1,12 +1,10 @@
 import uuid
 from django.db import models
-from django.utils import timezone
-# Import your Product model from whichever app it lives in, for example:
-# from authentication.models import Product 
+from django.contrib.postgres.fields import ArrayField
+from articles.models import *
 
 class ChatSession(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    # Assumes 'Product' model is imported from your authentication app
     product = models.ForeignKey('authentication.Product', on_delete=models.CASCADE, related_name='chat_sessions')
     device_ip = models.GenericIPAddressField(blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
@@ -25,6 +23,7 @@ class ChatMessage(models.Model):
     session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, related_name='messages')
     question = models.TextField()
     response = models.TextField(blank=True, null=True)
+    article_ids = ArrayField(models.UUIDField(), blank=True, default=list)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
