@@ -1,37 +1,45 @@
 from rest_framework import serializers
 from .models import Tag, Category, Articles, ArticleTag, ArticlesVersion, ArticleImage
+from authentication.models import ProductVersion
+
 
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
         fields = ['id', 'name', 'description']
+        read_only_fields = ['id']
 
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = ['id', 'name', 'description']
-
-
-class ArticlesSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Articles
-        fields = ['id', 'title', 'description', 'category', 'visibility', 'status', 'created_at', 'updated_at']
+        read_only_fields = ['id']
 
 
 class ArticleTagSerializer(serializers.ModelSerializer):
+    tag = TagSerializer(read_only=True)
+    tag_id = serializers.PrimaryKeyRelatedField(
+        queryset=Tag.objects.all(), source='tag', write_only=True
+    )
+
     class Meta:
         model = ArticleTag
-        fields = ['id', 'article', 'tag']
+        fields = ['id', 'article', 'tag', 'tag_id']
+        read_only_fields = ['id']
 
 
 class ArticlesVersionSerializer(serializers.ModelSerializer):
+    author_username = serializers.ReadOnlyField(source='author.username')
+
     class Meta:
         model = ArticlesVersion
         fields = [
             'id', 'article', 'product_version', 'content', 'changes', 
-            'status', 'author', 'reviewed_by', 'created_at', 'updated_at'
+            'status', 'author', 'author_username', 'reviewed_by', 
+            'created_at', 'updated_at'
         ]
+        read_only_fields = ['id', 'author', 'created_at', 'updated_at']
 
 
 class ArticleImageSerializer(serializers.ModelSerializer):
@@ -42,3 +50,92 @@ class ArticleImageSerializer(serializers.ModelSerializer):
             'file_size', 'mime_type', 'alt_text', 'caption', 'display_order', 
             'uploaded_by', 'created_at', 'updated_at'
         ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class ArticlesSerializer(serializers.ModelSerializer):
+    # Inputs for automatic version creation
+    content = serializers.CharField(write_only=True, required=True)
+    product_version = serializers.PrimaryKeyRelatedField(
+        queryset=ProductVersion.objects.all(), write_only=True, required=True
+    )
+    changes = serializers.CharField(write_only=True, required=False, allow_blank=True, default="Initial version")
+
+    class Meta:
+        model = Articles
+        fields = [
+            'id', 'title', 'description', 'category', 'visibility', 
+            'status', 'content', 'product_version', 'changes', 
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        user = request.user if request else None
+
+        # Rule 2: Non-admin staff cannot publish directly; status defaults to DRAFT or IN_REVIEW
+        if user and not user.is_superuser:
+            requested_status = attrs.get('status', 'DRAFT')
+            if requested_status == 'PUBLISHED':
+                attrs['status'] = 'IN_REVIEW'
+        return attrs
+
+    def create(self, validated_data):
+        content = validated_data.pop('content')
+        product_version = validated_data.pop('product_version')
+        changes = validated_data.pop('changes', '')
+        user = self.context['request'].user
+
+        article = Articles.objects.create(**validated_data)
+
+        # Rule 6: Automatically create ArticleVersion
+        ArticlesVersion.objects.create(
+            article=article,
+            product_version=product_version,
+            content=content,
+            changes=changes,
+            status=article.status,
+            author=user
+        )
+        return article
+
+    def update(self, instance, validated_data):
+        content = validated_data.pop('content', None)
+        product_version = validated_data.pop('product_version', None)
+        changes = validated_data.pop('changes', 'Updated article content')
+        user = self.context['request'].user
+
+        # Update base article details
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Rule 6: If content/version is updated, automatically append a new version entry
+        if content or product_version:
+            latest_version = instance.versions.order_by('-created_at').first()
+            ArticlesVersion.objects.create(
+                article=instance,
+                product_version=product_version or latest_version.product_version,
+                content=content or latest_version.content,
+                changes=changes,
+                status=instance.status,
+                author=user
+            )
+        return instance
+
+
+class ArticleDetailSerializer(serializers.ModelSerializer):
+    category = CategorySerializer(read_only=True)
+    article_tags = ArticleTagSerializer(many=True, read_only=True)
+    versions = ArticlesVersionSerializer(many=True, read_only=True)
+    images = ArticleImageSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Articles
+        fields = [
+            'id', 'title', 'description', 'category', 'visibility', 
+            'status', 'article_tags', 'versions', 'images', 
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']

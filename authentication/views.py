@@ -3,8 +3,10 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
-from models import Role  
-from serializers import *
+from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+from .models import Role 
+from rest_framework.views import APIView 
+from .serializers import *
 import logging
 
 logger = logging.getLogger(__name__)
@@ -102,10 +104,7 @@ def login(request):
                 data={
                     'status_code': 200, 
                     'message': 'Login successful',
-                    'user': {
-                        'id': user.id,
-                        'email': user.email
-                    }
+                    'user': UserSerializer(user).data
                 },
                 status=status.HTTP_200_OK
             )
@@ -114,18 +113,20 @@ def login(request):
                 key='access_token',
                 value=access_token,
                 httponly=True,        
-                secure=False,         
-                samesite='Lax',       
-                max_age=15 * 60   # TODO: Match your token lifetime     
+                secure=True,         
+                samesite='None',       
+                max_age=15 * 60, 
+                path='/',       
             )
         
             response.set_cookie(
                 key='refresh_token',
                 value=refresh_token,
                 httponly=True,
-                secure=False,         
-                samesite='Lax',
-                max_age=24 * 60 * 60  # TODO: Match your token lifetime 
+                secure=True,         
+                samesite='None',
+                max_age=24 * 60 * 60, 
+                path='/'
             )
 
             logger.info(f"Cookies baked and set successfully for {email}!")
@@ -139,7 +140,6 @@ def login(request):
             )
 
     except User.DoesNotExist:
-        # Keep response generic for security reasons (prevents account harvesting)
         logger.warning(f"Login failed: Email {email} does not exist.")
         return Response(
             data={'status_code': 401, 'message': 'Invalid email or password.'},
@@ -210,7 +210,6 @@ def admin_role_view(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-
 @api_view(['GET', 'POST'])
 @permission_classes([IsAdminUser])
 def admin_product_view(request):
@@ -329,3 +328,56 @@ def admin_product_version_view(request):
             },
             status=status.HTTP_400_BAD_REQUEST
         )
+
+
+class CookieTokenRefreshView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def post(self, request):
+        refresh_token = request.COOKIES.get('refresh_token')
+
+        if not refresh_token:
+            logger.warning("Token refresh attempt failed: Missing refresh_token in cookies.")
+            return Response(
+                {"error": "Refresh token not found in cookies."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            token = RefreshToken(refresh_token)
+         
+            new_access_token = str(token.access_token)
+            token.set_jti()
+            token.set_exp()
+            new_refresh_token = str(token)
+
+            response = Response({"detail": "Token refreshed successfully."}, status=status.HTTP_200_OK)
+
+            response.set_cookie(
+                key='access_token',
+                value=new_access_token,
+                httponly=True,
+                secure=False,
+                samesite= None,
+                max_age=15 * 60  
+            )
+
+            response.set_cookie(
+                key='refresh_token',
+                value=new_refresh_token,
+                httponly=True,
+                secure=False,
+                samesite=None,
+                max_age=7 * 24 * 60 * 60  
+            )
+
+            logger.info("Tokens successfully refreshed and cookies updated.")
+            return response
+
+        except (TokenError, InvalidToken) as e:
+            logger.warning(f"Token refresh attempt failed: {str(e)}")
+            return Response(
+                {"error": "Invalid or expired refresh token."},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
