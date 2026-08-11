@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Role, User, Product, ProductVersion
+from .models import Role, User
 
 
 @admin.register(Role)
@@ -24,24 +24,3 @@ class UserAdmin(admin.ModelAdmin):
     )
     readonly_fields = ('created_at', 'updated_at')
 
-
-class ProductVersionInline(admin.TabularInline):
-    """Allows managing Product Versions directly inside the Product admin view."""
-    model = ProductVersion
-    extra = 1
-
-
-@admin.register(Product)
-class ProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'api_key', 'created_at', 'updated_at')
-    search_fields = ('name', 'api_key')
-    ordering = ('-created_at',)
-    inlines = [ProductVersionInline]
-
-
-@admin.register(ProductVersion)
-class ProductVersionAdmin(admin.ModelAdmin):
-    list_display = ('product', 'version', 'created_at')
-    list_filter = ('product',)
-    search_fields = ('product__name', 'version')
-    ordering = ('-created_at',)

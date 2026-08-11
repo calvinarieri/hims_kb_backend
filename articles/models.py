@@ -2,6 +2,7 @@ import uuid
 from django.db import models
 from django.conf import settings  
 from authentication.models import *
+from product.models import *
 
 class Tag(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -25,12 +26,23 @@ class Category(models.Model):
 
 
 class Articles(models.Model):
+    VISIBILITY_CHOICES = [
+        ('PUBLIC', 'Public'),
+        ('PRIVATE', 'Private'),
+    ]
+
+    STATUS_CHOICES = [
+        ('DRAFT', 'Draft'),
+        ('REVIEW', 'Review'),
+        ('PUBLISHED', 'Published')
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
     category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='articles')
-    visibility = models.CharField(max_length=50)
-    status = models.CharField(max_length=50)
+    visibility = models.CharField(max_length=50, choices=VISIBILITY_CHOICES)
+    status = models.CharField(max_length=50, default='DRAFT', choices=STATUS_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

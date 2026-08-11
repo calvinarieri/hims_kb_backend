@@ -7,7 +7,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import ArticleImage, Articles, ArticlesVersion, ArticleTag, Category, Tag
+from .models import *
 from .permision import CanReadArticle, IsAuthorOrAdminForWrite, IsStaffOrAdminUser
 from .serializers import (
     ArticleDetailSerializer,

@@ -11,13 +11,11 @@ def clear_article_caches(article_id=None):
     if article_id:
         cache.delete(f"article_detail_{article_id}")
 
-    # Wipe search and staff cached keys pattern or flush
-    # In Redis production, use wildcard pattern deletion or cache versioning
+
     try:
         cache.delete_pattern("search_results_*")
         cache.delete_pattern("staff_articles_*")
     except AttributeError:
-        # Fallback if cache backend doesn't support pattern matching
         cache.clear()
 
 

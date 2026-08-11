@@ -5,7 +5,7 @@ from articles.models import *
 
 class ChatSession(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    product = models.ForeignKey('authentication.Product', on_delete=models.CASCADE, related_name='chat_sessions')
+    product = models.ForeignKey('product.Product', on_delete=models.CASCADE, related_name='chat_sessions')
     device_ip = models.GenericIPAddressField(blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
     session_key = models.CharField(max_length=255, unique=True)

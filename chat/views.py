@@ -3,12 +3,12 @@ from rest_framework.response import Response
 from rest_framework import status, generics
 from rest_framework.permissions import AllowAny
 
-from .models import ChatSession, ChatMessage, ChatFeedback
+from .models import ChatMessage
 from .serializers import (
     SendMessageSerializer,
     ChatMessageSerializer,
     ChatFeedbackSerializer,
-    ChatSessionSerializer
+
 )
 from .services import ChatbotService
 

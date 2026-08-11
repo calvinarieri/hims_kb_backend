@@ -1,7 +1,5 @@
 from rest_framework import serializers
-from .models import Tag, Category, Articles, ArticleTag, ArticlesVersion, ArticleImage
-from authentication.models import ProductVersion
-
+from .models import *
 
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
@@ -54,7 +52,7 @@ class ArticleImageSerializer(serializers.ModelSerializer):
 
 
 class ArticlesSerializer(serializers.ModelSerializer):
-    # Inputs for automatic version creation
+
     content = serializers.CharField(write_only=True, required=True)
     product_version = serializers.PrimaryKeyRelatedField(
         queryset=ProductVersion.objects.all(), write_only=True, required=True
@@ -74,7 +72,6 @@ class ArticlesSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         user = request.user if request else None
 
-        # Rule 2: Non-admin staff cannot publish directly; status defaults to DRAFT or IN_REVIEW
         if user and not user.is_superuser:
             requested_status = attrs.get('status', 'DRAFT')
             if requested_status == 'PUBLISHED':
@@ -89,7 +86,6 @@ class ArticlesSerializer(serializers.ModelSerializer):
 
         article = Articles.objects.create(**validated_data)
 
-        # Rule 6: Automatically create ArticleVersion
         ArticlesVersion.objects.create(
             article=article,
             product_version=product_version,
@@ -106,12 +102,10 @@ class ArticlesSerializer(serializers.ModelSerializer):
         changes = validated_data.pop('changes', 'Updated article content')
         user = self.context['request'].user
 
-        # Update base article details
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
-
-        # Rule 6: If content/version is updated, automatically append a new version entry
+        
         if content or product_version:
             latest_version = instance.versions.order_by('-created_at').first()
             ArticlesVersion.objects.create(
