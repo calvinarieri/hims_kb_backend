@@ -1,9 +1,13 @@
 import re
-from hims_kb.settings import OPENAI_API_KEY
+from django.conf import settings
 from product.models import *
 from openai import OpenAI
 
-client = OpenAI(api_key=OPENAI_API_KEY)
+api_key = getattr(settings, 'OPENROUTER_API_KEY', None) or getattr(settings, 'OPENAI_API_KEY', None)
+client = OpenAI(
+    api_key=api_key,
+    base_url=getattr(settings, 'OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
+)
 
 class ProductUpdates:
     @staticmethod
@@ -54,18 +58,39 @@ class ProductUpdates:
         )
 
         try:
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",  # Using mini here because it's fast, cheap, and excellent at structured extraction
-                messages=[
-                    {"role": "system", "content": "You are a technical data extraction engine."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.1  # Keep it hyper-factual and strictly grounded in the code
-            )
-            return response.choices[0].message.content.strip()
+            model_name = getattr(settings, 'OPENROUTER_MODEL', 'openai/gpt-5-mini')
+            fallback_models = [
+                item.strip()
+                for item in getattr(settings, 'OPENROUTER_FALLBACK_MODELS', 'meta-llama/llama-3.1-8b-instruct,openai/gpt-5-mini').split(',')
+                if item.strip()
+            ]
+            candidate_models = [model_name] + [m for m in fallback_models if m and m != model_name]
+
+            last_error = None
+            for candidate in candidate_models:
+                try:
+                    response = client.chat.completions.create(
+                        model=candidate,
+                        messages=[
+                            {"role": "system", "content": "You are a technical data extraction engine."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.1,
+                        max_tokens=2000,
+                    )
+                    return response.choices[0].message.content.strip()
+                except Exception as exc:
+                    last_error = exc
+                    status_code = getattr(getattr(exc, 'response', None), 'status_code', None)
+                    message_text = str(exc).lower()
+                    if status_code == 404 and 'unavailable for free' in message_text:
+                        continue
+                    raise
+
+            if last_error is not None:
+                raise last_error
         except Exception as e:
             print(f"Structured summary generation failed: {e}")
-            # Fallback format matching the structural vibe
             changed_files = [file.get('filename') for file in code_changes if file.get('filename')]
             files_str = ", ".join(changed_files)
             return f"## 1. High-Level Concept\n- **Core Objective**: {raw_description}\n\n## 2. Technical Deep-Dive\n- **Changed Files**: {files_str}"

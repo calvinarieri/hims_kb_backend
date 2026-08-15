@@ -148,6 +148,9 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         # 'rest_framework_simplejwt.authentication.JWTAuthentication',
         "authentication.CookieAuthClass.CookieJWTAuthentication",
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
     )
 }
 
@@ -254,3 +257,18 @@ SIMPLE_JWT = {
 
 
 AUTH_USER_MODEL = 'authentication.User'
+OPENAI_API_KEY = env('OPENAI_API_KEY', default='')
+OPENROUTER_API_KEY = env('OPENROUTER_API_KEY', default=OPENAI_API_KEY)
+OPENROUTER_BASE_URL = env('OPENROUTER_BASE_URL', default='https://openrouter.ai/api/v1')
+OPENROUTER_MODEL = env(
+    'OPENROUTER_MODEL',
+    default='openai/gpt-5-mini'
+)
+OPENROUTER_FALLBACK_MODELS = env(
+    'OPENROUTER_FALLBACK_MODELS',
+    default='meta-llama/llama-3.1-8b-instruct,openai/gpt-5-mini'
+)
+OPENROUTER_EMBEDDING_MODEL = env(
+    'OPENROUTER_EMBEDDING_MODEL',
+    default='openai/text-embedding-3-small'
+)

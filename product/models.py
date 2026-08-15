@@ -21,8 +21,14 @@ class ProductVersion(models.Model):
     version = models.CharField(max_length=50)
     description = models.TextField(blank=True, null=True)
     status = models.CharField(
-        
+        choices = [
+            ('pending', 'PENDING'),
+            ('approved', 'APPROVED'),
+            ('declined', 'DECLINED'),
+        ],
+        default='pending'
     )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

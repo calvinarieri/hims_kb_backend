@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     TagViewSet, CategoryViewSet, ArticlesViewSet,
     ArticleTagViewSet, ArticlesVersionViewSet, ArticleImageViewSet,
-    ImmersiveSearchAPIView
+    ImmersiveSearchAPIView, DashboardAPIView, PDFImportAPIView, ArticleFeedbackAPIView
 )
 
 router = DefaultRouter()
@@ -20,4 +20,8 @@ urlpatterns = [
     
     # Router API Endpoints
     path('', include(router.urls)),
+    # Dashboard and article feedback endpoints
+    path('dashboard/', DashboardAPIView.as_view(), name='dashboard'),
+    path('import-pdf/', PDFImportAPIView.as_view(), name='import-pdf'),
+    path('articles/<uuid:article_id>/feedback/', ArticleFeedbackAPIView.as_view(), name='article-feedback'),
 ]

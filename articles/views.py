@@ -1,7 +1,7 @@
 import hashlib
 import logging
 from django.core.cache import cache
-from django.db.models import Q
+from django.db.models import Q, Avg, Count
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -18,6 +18,10 @@ from .serializers import (
     CategorySerializer,
     TagSerializer,
 )
+from feedback.serializers import ArticleFeedbackSerializer
+from feedback.models import ArticleFeedback
+from chat.models import ChatFeedback, ChatMessage
+from .pdf_article_service import PDFArticleImportService
 
 
 logger = logging.getLogger(__name__)
@@ -205,3 +209,109 @@ class ImmersiveSearchAPIView(APIView):
             logger.exception(f"Failed to cache search results for query: '{query}'")
 
         return Response(response_data, status=status.HTTP_200_OK)
+
+
+class DashboardAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def get(self, request, *args, **kwargs):
+        # Basic counts
+        total_articles = Articles.objects.count()
+        chat_requests = ChatMessage.objects.count()
+
+        # Chat feedback average and distribution
+        chat_avg = ChatFeedback.objects.aggregate(avg=Avg('rating'))['avg']
+        rating_distribution = (
+            ChatFeedback.objects
+            .values('rating')
+            .annotate(count=Count('id'))
+            .order_by('-rating')
+        )
+
+        # Article status breakdown
+        status_breakdown = (
+            Articles.objects
+            .values('status')
+            .annotate(count=Count('id'))
+        )
+
+        # Top/lowest rated articles (based on ArticleFeedback)
+        top_articles = (
+            ArticleFeedback.objects
+            .values('article__id', 'article__title')
+            .annotate(avg_rating=Avg('rating'), requests=Count('id'))
+            .order_by('-avg_rating')[:5]
+        )
+
+        lowest_articles = (
+            ArticleFeedback.objects
+            .values('article__id', 'article__title')
+            .annotate(avg_rating=Avg('rating'), requests=Count('id'))
+            .order_by('avg_rating')[:5]
+        )
+
+        return Response({
+            'total_articles': total_articles,
+            'chat_requests': chat_requests,
+            'chat_average_rating': chat_avg,
+            'chat_rating_distribution': list(rating_distribution),
+            'status_breakdown': list(status_breakdown),
+            'top_articles': list(top_articles),
+            'lowest_articles': list(lowest_articles),
+        })
+
+
+class PDFImportAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        uploaded_file = request.FILES.get('file') or request.FILES.get('pdf')
+        if uploaded_file is None:
+            return Response(
+                {'detail': 'A PDF file is required in the request as "file" or "pdf".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not uploaded_file.name.lower().endswith('.pdf'):
+            return Response(
+                {'detail': 'Only PDF files are supported.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        product_id = request.data.get('product_id')
+        product_version_id = request.data.get('product_version_id')
+        category_name = request.data.get('category_name', 'General')
+
+        try:
+            result = PDFArticleImportService.import_pdf_to_articles(
+                uploaded_file=uploaded_file,
+                user=request.user,
+                product_id=product_id,
+                product_version_id=product_version_id,
+                category_name=category_name,
+            )
+        except (ValueError, ImportError) as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:  # pragma: no cover
+            logger.exception('Failed to import PDF into articles.')
+            return Response({'detail': f'Failed to process the PDF: {str(exc)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        return Response({
+            'status_code': status.HTTP_201_CREATED,
+            'message': 'PDF content was split and converted into article records.',
+            'data': result,
+        }, status=status.HTTP_201_CREATED)
+
+
+class ArticleFeedbackAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, article_id, *args, **kwargs):
+        data = request.data.copy()
+        data['article'] = article_id
+        serializer = ArticleFeedbackSerializer(data=data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        feedback = serializer.save()
+        return Response(ArticleFeedbackSerializer(feedback).data, status=status.HTTP_201_CREATED)

@@ -182,7 +182,7 @@ def login(request):
                 httponly=True,        
                 secure=True,         
                 samesite='None',       
-                max_age=15 * 60, 
+                max_age=60*60, 
             )
         
             response.set_cookie(

@@ -1,8 +1,14 @@
 import uuid
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
-from django.conf import settings  
+from django.conf import settings
 from authentication.models import *
 from product.models import *
+
+try:
+    from pgvector.django import VectorField
+except Exception:  # pragma: no cover
+    VectorField = None
 
 class Tag(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -70,10 +76,15 @@ class ArticlesVersion(models.Model):
     content = models.TextField()
     changes = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=50)
-    
+    embedding = (
+        VectorField(dimensions=1536, null=True, blank=True)
+        if VectorField is not None
+        else ArrayField(models.FloatField(), size=1536, null=True, blank=True, default=list)
+    )
+
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='authored_versions')
     reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_versions')
-    
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
