@@ -533,7 +533,6 @@ class Command(BaseCommand):
             f"<article>",
             f"<h1>{title}</h1>",
             f"<p><strong>Overview:</strong> {summary}</p>",
-            f"<p><strong>Visibility:</strong> {article_data.get('visibility', 'PUBLIC')} | <strong>Status:</strong> {article_data.get('article_status', 'PUBLISHED')}</p>",
             f"<h2>How this affects normal functioning</h2>",
             f"<p>This guidance explains how the {title.lower()} workflow supports day-to-day patient care, facility operations, reporting quality, and continuity of service in HMIS.</p>",
         ]
@@ -541,8 +540,5 @@ class Command(BaseCommand):
         for index, section in enumerate(sections, start=1):
             html.append(f"<h3>Step {index}</h3>")
             html.append(f"<p>{section}</p>")
-
-        html.append("<h3>Operational impact</h3>")
-        html.append("<p>When this workflow is followed correctly, staff can deliver safer, more consistent care, maintain accurate records, reduce duplicate work, and respond more quickly to problems before they affect patient outcomes or service continuity.</p>")
         html.append("</article>")
         return "\n".join(html)

@@ -74,6 +74,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'hims_kb.middleware.error_middleware.ErrorHandlingMiddleware',
 ]
 CORS_ALLOW_CREDENTIALS = True
 
