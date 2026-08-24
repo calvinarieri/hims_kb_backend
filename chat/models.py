@@ -23,7 +23,7 @@ class ChatMessage(models.Model):
     session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, related_name='messages')
     question = models.TextField()
     response = models.TextField(blank=True, null=True)
-    article_ids = ArrayField(models.UUIDField(), blank=True, default=list)
+    article_ids = ArrayField(models.UUIDField(), blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

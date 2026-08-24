@@ -4,18 +4,20 @@ from .models import *
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Role
-        fields = ['id', 'name']
+        fields = ['id', 'name', 'description', 'permissions']
 
 
 class UserSerializer(serializers.ModelSerializer):
+    role_details = RoleSerializer(source='role', read_only=True)
+
     class Meta:
         model = User
         fields = [
             'id', 'first_name', 'last_name', 'email', 'password',
-            'role', 'is_active', 'is_staff', 'is_superuser', 'created_at', 'updated_at'
+            'role', 'role_details', 'is_active', 'is_staff', 'is_superuser', 'created_at', 'updated_at'
         ]
         extra_kwargs = {
-            'password': {'write_only': True, 'required': True},
+            'password': {'write_only': True, 'required': False},
             'is_staff': {'read_only': True},
             'is_superuser': {'read_only': True}
         }

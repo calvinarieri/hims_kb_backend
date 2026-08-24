@@ -14,6 +14,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='articlesversion',
             name='embedding',
-            field=django.contrib.postgres.fields.ArrayField(base_field=models.FloatField(), blank=True, default=list, null=True, size=1536),
+            field=django.contrib.postgres.fields.ArrayField(base_field=models.FloatField(), blank=True, default=None, null=True, size=1536),
         ),
     ]

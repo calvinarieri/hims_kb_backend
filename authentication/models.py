@@ -5,9 +5,55 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 class Role(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True, null=True)
+    permissions = models.JSONField(default=None, null=True, blank=True, help_text="List of feature permission strings enabled for this role.")
 
     def __str__(self):
         return self.name
+
+    @classmethod
+    def get_available_permissions(cls):
+        """
+        Returns all system feature permissions organized by feature category.
+        """
+        return [
+            {
+                "category": "Articles",
+                "permissions": [
+                    {"code": "articles:read", "label": "View Articles"},
+                    {"code": "articles:create", "label": "Create Articles"},
+                    {"code": "articles:update", "label": "Update Articles"},
+                    {"code": "articles:delete", "label": "Delete Articles"},
+                ]
+            },
+            {
+                "category": "Staff & Roles",
+                "permissions": [
+                    {"code": "staff:read", "label": "View Staff Members"},
+                    {"code": "staff:manage", "label": "Manage Staff (Create, Edit, Dismiss)"},
+                    {"code": "roles:manage", "label": "Manage Roles & Permissions"},
+                ]
+            },
+            {
+                "category": "Support & Feedback",
+                "permissions": [
+                    {"code": "chat:manage", "label": "Manage Chat & Customer Service"},
+                    {"code": "feedback:manage", "label": "View & Manage User Feedback"},
+                ]
+            },
+            {
+                "category": "Products",
+                "permissions": [
+                    {"code": "product:manage", "label": "Manage Products & Versions"},
+                ]
+            },
+            {
+                "category": "Dashboard",
+                "permissions": [
+                    {"code": "dashboard:view", "label": "View Analytics & Dashboard"},
+                ]
+            }
+        ]
 
 
 

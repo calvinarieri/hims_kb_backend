@@ -79,7 +79,7 @@ class ArticlesVersion(models.Model):
     embedding = (
         VectorField(dimensions=1536, null=True, blank=True)
         if VectorField is not None
-        else ArrayField(models.FloatField(), size=1536, null=True, blank=True, default=list)
+        else ArrayField(models.FloatField(), size=1536, null=True, blank=True)
     )
 
     author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='authored_versions')

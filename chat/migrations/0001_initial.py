@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
                 ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
                 ('question', models.TextField()),
                 ('response', models.TextField(blank=True, null=True)),
-                ('article_ids', django.contrib.postgres.fields.ArrayField(base_field=models.UUIDField(), blank=True, default=list)),
+                ('article_ids', django.contrib.postgres.fields.ArrayField(base_field=models.UUIDField(), blank=True, default=None, null=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('session', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='messages', to='chat.chatsession')),
             ],

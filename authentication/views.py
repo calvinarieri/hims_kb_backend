@@ -11,6 +11,9 @@ from django.contrib.auth import get_user_model
 from .models import Role
 from .serializers import UserSerializer, RoleSerializer
 
+from rest_framework.decorators import action, api_view, permission_classes
+from .email_service import StaffEmailService
+
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
@@ -50,12 +53,18 @@ class StaffViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         logger.info(f"User {request.user} is attempting to create a new staff account.")
+        raw_password = request.data.get('password')
         serializer = self.get_serializer(data=request.data)
 
         if serializer.is_valid():
-            serializer.save(is_staff=True)            
+            user = serializer.save(is_staff=True)
             username = serializer.data.get('email', 'N/A')
             logger.info(f"Success, new staff account '{username}' created by {request.user}!")
+            
+            # Send welcome email with raw password
+            if raw_password:
+                StaffEmailService.send_staff_created_email(user, raw_password)
+
             return Response(
                 {
                     'status_code': 201,
@@ -74,6 +83,45 @@ class StaffViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_400_BAD_REQUEST
         )
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        old_is_active = instance.is_active
+        new_password = request.data.get('password')
+
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        if serializer.is_valid():
+            user = serializer.save()
+            
+            # Email triggers
+            if new_password:
+                StaffEmailService.send_staff_password_updated_email(user, new_password)
+            
+            if old_is_active and not user.is_active:
+                StaffEmailService.send_staff_dismissed_email(user)
+
+            return Response(
+                {
+                    'status_code': 200,
+                    'message': 'staff member updated successfully',
+                    'data': serializer.data
+                },
+                status=status.HTTP_200_OK
+            )
+        return Response(
+            {
+                'status_code': 400,
+                'message': 'validation failed',
+                'errors': serializer.errors
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        StaffEmailService.send_staff_dismissed_email(instance)
+        return super().destroy(request, *args, **kwargs)
 
 
 class RoleViewSet(viewsets.ModelViewSet):
@@ -134,6 +182,16 @@ class RoleViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_400_BAD_REQUEST
         )
+
+    @action(detail=False, methods=['get'], url_path='available-permissions')
+    def available_permissions(self, request):
+        """
+        Returns list of system feature permissions available to assign to roles.
+        """
+        return Response({
+            'status_code': 200,
+            'data': Role.get_available_permissions()
+        }, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
