@@ -24,6 +24,7 @@ class Role(models.Model):
                     {"code": "articles:create", "label": "Create Articles"},
                     {"code": "articles:update", "label": "Update Articles"},
                     {"code": "articles:delete", "label": "Delete Articles"},
+                    {"code": "articles:approve", "label": "Approve Articles for Publication"},
                 ]
             },
             {

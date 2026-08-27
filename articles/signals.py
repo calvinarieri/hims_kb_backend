@@ -1,5 +1,6 @@
 import logging
 
+from django.conf import settings
 from django.core.cache import cache
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
@@ -32,6 +33,8 @@ def on_article_change(sender, instance, **kwargs):
 @receiver([post_save], sender=ArticlesVersion)
 def on_version_change(sender, instance, **kwargs):
     clear_article_caches(instance.article_id)
+    if getattr(settings, 'TESTING', False):
+        return
     if getattr(instance, "content", None) and not getattr(instance, "embedding", None):
         try:
             if not getattr(instance, '_embedding_generation_in_progress', False):

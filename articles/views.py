@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import *
-from .permision import CanReadArticle, IsAuthorOrAdminForWrite, IsStaffOrAdminUser
+from .permision import CanReadArticle, IsAuthorOrAdminForWrite, IsStaffOrAdminUser, CanApproveArticle
 from .serializers import (
     ArticleDetailSerializer,
     ArticleImageSerializer,
@@ -47,12 +47,16 @@ class ArticlesViewSet(viewsets.ModelViewSet):
     )
 
     def get_permissions(self):
+        if self.action == 'submit_for_review':
+            return [IsStaffOrAdminUser(), IsAuthorOrAdminForWrite()]
+        if self.action == 'approve':
+            return [CanApproveArticle()]
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsStaffOrAdminUser(), IsAuthorOrAdminForWrite()]
         return [CanReadArticle()]
 
     def get_serializer_class(self):
-        if self.action in ['retrieve', 'staff_articles']:
+        if self.action in ['retrieve', 'list', 'staff_articles']:
             return ArticleDetailSerializer
         return ArticlesSerializer
 
@@ -124,6 +128,63 @@ class ArticlesViewSet(viewsets.ModelViewSet):
             logger.exception(f"Error saving staff_articles to cache. Key: {cache_key}")
 
         return Response(data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsStaffOrAdminUser, IsAuthorOrAdminForWrite], url_path='submit-for-review')
+    def submit_for_review(self, request, pk=None):
+        article = self.get_object()
+        
+        # Enforce at least 2 tags attached before submission
+        tag_count = article.article_tags.count()
+        if tag_count < 2:
+            return Response(
+                {
+                    'status_code': status.HTTP_400_BAD_REQUEST,
+                    'detail': f"Article must have at least 2 tags attached before submitting for review/approval (currently has {tag_count})."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        logger.info(f"User {request.user} is submitting article ID {article.id} ('{article.title}') for approval/review.")
+        
+        article.status = 'REVIEW'
+        article.save()
+
+        # Update draft versions to REVIEW status
+        article.versions.filter(status='DRAFT').update(status='REVIEW')
+
+        serializer = ArticleDetailSerializer(article)
+        return Response(
+            {
+                'status_code': status.HTTP_200_OK,
+                'message': f"Article '{article.title}' submitted for approval successfully.",
+                'data': serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
+
+    @action(detail=True, methods=['post'], permission_classes=[CanApproveArticle], url_path='approve')
+    def approve(self, request, pk=None):
+        article = self.get_object()
+        logger.info(f"User {request.user} is approving article ID {article.id} ('{article.title}') for publication.")
+        
+        article.status = 'PUBLISHED'
+        article.save()
+
+        # Mark draft/review versions as published
+        article.versions.filter(status__in=['DRAFT', 'REVIEW']).update(
+            status='PUBLISHED',
+            reviewed_by=request.user
+        )
+
+        serializer = ArticleDetailSerializer(article)
+        return Response(
+            {
+                'status_code': status.HTTP_200_OK,
+                'message': f"Article '{article.title}' approved and published successfully.",
+                'data': serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
 
 
 class ArticleTagViewSet(viewsets.ModelViewSet):

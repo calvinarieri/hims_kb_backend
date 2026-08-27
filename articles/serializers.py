@@ -58,12 +58,18 @@ class ArticlesSerializer(serializers.ModelSerializer):
         queryset=ProductVersion.objects.all(), write_only=True, required=True
     )
     changes = serializers.CharField(write_only=True, required=False, allow_blank=True, default="Initial version")
+    tag_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        write_only=True,
+        required=False,
+        help_text="List of Tag UUIDs to attach to this article."
+    )
 
     class Meta:
         model = Articles
         fields = [
             'id', 'title', 'description', 'category', 'visibility', 
-            'status', 'content', 'product_version', 'changes', 
+            'status', 'content', 'product_version', 'changes', 'tag_ids',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
@@ -74,17 +80,21 @@ class ArticlesSerializer(serializers.ModelSerializer):
 
         if user and not user.is_superuser:
             requested_status = attrs.get('status', 'DRAFT')
-            if requested_status == 'PUBLISHED':
-                attrs['status'] = 'IN_REVIEW'
+            if requested_status not in ['DRAFT', 'REVIEW']:
+                attrs['status'] = 'DRAFT'
         return attrs
 
     def create(self, validated_data):
         content = validated_data.pop('content')
         product_version = validated_data.pop('product_version')
         changes = validated_data.pop('changes', '')
+        tag_ids = validated_data.pop('tag_ids', [])
         user = self.context['request'].user
 
         article = Articles.objects.create(**validated_data)
+
+        for tag_id in tag_ids:
+            ArticleTag.objects.get_or_create(article=article, tag_id=tag_id)
 
         ArticlesVersion.objects.create(
             article=article,
@@ -100,11 +110,17 @@ class ArticlesSerializer(serializers.ModelSerializer):
         content = validated_data.pop('content', None)
         product_version = validated_data.pop('product_version', None)
         changes = validated_data.pop('changes', 'Updated article content')
+        tag_ids = validated_data.pop('tag_ids', None)
         user = self.context['request'].user
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
+
+        if tag_ids is not None:
+            instance.article_tags.all().delete()
+            for tag_id in tag_ids:
+                ArticleTag.objects.get_or_create(article=instance, tag_id=tag_id)
         
         if content or product_version:
             latest_version = instance.versions.order_by('-created_at').first()

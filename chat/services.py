@@ -265,13 +265,19 @@ class ChatbotService:
         if not query:
             return "", []
 
-        base_queryset = ArticlesVersion.objects.filter(status__iexact="PUBLISHED").select_related("article", "product_version__product")
+        public_published_filter = Q(status__iexact="PUBLISHED") & Q(article__status="PUBLISHED") & Q(article__visibility="PUBLIC")
+        base_queryset = ArticlesVersion.objects.filter(public_published_filter).select_related(
+            "article", "article__category", "product_version__product"
+        ).prefetch_related("article__article_tags__tag")
+
         if product_id:
             base_queryset = base_queryset.filter(product_version__product_id=product_id)
 
         candidates = base_queryset
         if not candidates.exists():
-            candidates = ArticlesVersion.objects.filter(status__iexact="PUBLISHED").select_related("article", "product_version__product")
+            candidates = ArticlesVersion.objects.filter(public_published_filter).select_related(
+                "article", "article__category", "product_version__product"
+            ).prefetch_related("article__article_tags__tag")
 
         # Ensure published articles have embeddings before semantic matching. This keeps
         # retrieval grounded in the actual article content instead of empty or stale vectors.
@@ -284,14 +290,16 @@ class ChatbotService:
             keywords = cls._keyword_tokens(query)
             q = Q()
             for keyword in keywords:
-                q |= Q(content__icontains=keyword) | Q(article__title__icontains=keyword)
+                q |= Q(content__icontains=keyword) | Q(article__title__icontains=keyword) | Q(article__description__icontains=keyword) | Q(article__article_tags__tag__name__icontains=keyword)
 
             fallback = base_queryset.filter(q)[:limit]
             snippets = []
             article_ids = []
             for version in fallback:
                 content = (version.content or "")[:2000]
-                snippets.append(f"Title: {version.article.title}\nContent: {content}")
+                tag_names = [at.tag.name for at in version.article.article_tags.all()]
+                tags_str = f"\nTags: {', '.join(tag_names)}" if tag_names else ""
+                snippets.append(f"Title: {version.article.title}{tags_str}\nContent: {content}")
                 article_ids.append(version.article_id)
             return "\n\n---\n\n".join(snippets), article_ids
 

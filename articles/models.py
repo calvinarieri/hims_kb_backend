@@ -6,7 +6,11 @@ from authentication.models import *
 from product.models import *
 
 try:
-    from pgvector.django import VectorField
+    from django.conf import settings
+    if getattr(settings, 'TESTING', False) or 'sqlite3' in getattr(settings, 'DATABASES', {}).get('default', {}).get('ENGINE', ''):
+        VectorField = None
+    else:
+        from pgvector.django import VectorField
 except Exception:  # pragma: no cover
     VectorField = None
 
@@ -78,7 +82,7 @@ class ArticlesVersion(models.Model):
     status = models.CharField(max_length=50)
     embedding = (
         VectorField(dimensions=1536, null=True, blank=True)
-        if VectorField is not None
+        if VectorField is not None and not getattr(settings, 'TESTING', False)
         else ArrayField(models.FloatField(), size=1536, null=True, blank=True)
     )
 
