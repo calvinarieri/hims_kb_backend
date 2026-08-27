@@ -77,3 +77,39 @@ class ChatbotGroundedAnswerTests(TestCase):
         self.assertIn('ID number', response)
         self.assertIn('confirming the appointment', response.lower())
         self.assertNotIn('I do not have enough information', response)
+
+    @patch('chat.services.ChatbotService._chat_completion_with_backoff')
+    def test_chatbot_authentication_with_valid_x_api_key_header(self, mock_completion):
+        from rest_framework.test import APIClient
+        client = APIClient()
+        mock_completion.return_value = type(
+            'Response',
+            (),
+            {'choices': [type('Choice', (), {'message': type('Message', (), {'content': 'Patients register by entering ID.'})()})()]}
+        )
+
+        res = client.post(
+            '/chat/send/',
+            {
+                'session_key': 'test-session-api-key',
+                'question': 'How do patients register?'
+            },
+            HTTP_X_API_KEY=self.product.api_key,
+            format='json'
+        )
+        self.assertEqual(res.status_code, 201)
+
+    def test_chatbot_authentication_with_invalid_api_key_header(self):
+        from rest_framework.test import APIClient
+        client = APIClient()
+        res = client.post(
+            '/chat/send/',
+            {
+                'session_key': 'test-session-invalid',
+                'question': 'How do patients register?'
+            },
+            HTTP_X_API_KEY='invalid-key-xyz',
+            format='json'
+        )
+        self.assertEqual(res.status_code, 401)
+        self.assertIn('Invalid Product API Key', res.data['detail'])

@@ -1,13 +1,15 @@
 import re
 from django.conf import settings
-from product.models import *
+from django.db import models
+from product.models import Product, ProductVersion
 from openai import OpenAI
 
 api_key = getattr(settings, 'OPENROUTER_API_KEY', None) or getattr(settings, 'OPENAI_API_KEY', None)
 client = OpenAI(
-    api_key=api_key,
+    api_key=api_key or "dummy-key-for-init",
     base_url=getattr(settings, 'OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
 )
+
 
 class ProductUpdates:
     @staticmethod
@@ -31,7 +33,7 @@ class ProductUpdates:
         technical summary optimized for future article generation.
         """
         changes_context = ""
-        for change in code_changes:
+        for change in (code_changes or []):
             filename = change.get('filename', 'Unknown File')
             patch = change.get('patch', '') 
             changes_context += f"\nFile: {filename}\nChanges:\n{patch}\n"
@@ -91,29 +93,38 @@ class ProductUpdates:
                 raise last_error
         except Exception as e:
             print(f"Structured summary generation failed: {e}")
-            changed_files = [file.get('filename') for file in code_changes if file.get('filename')]
-            files_str = ", ".join(changed_files)
+            changed_files = [file.get('filename') for file in (code_changes or []) if file.get('filename')]
+            files_str = ", ".join(changed_files) if changed_files else "None"
             return f"## 1. High-Level Concept\n- **Core Objective**: {raw_description}\n\n## 2. Technical Deep-Dive\n- **Changed Files**: {files_str}"
 
     @classmethod
-    def handle_github_changes(cls, repo_url, description, code_changes):
-        repo_name = repo_url.rstrip('/').split('/')[-1]
-        product = Product.objects.filter(name__iexact=repo_name).first()
-        
+    def handle_github_changes_for_product(cls, product, description, code_changes):
         if not product:
-            print(f"Product not found for repository: {repo_url}")
             return None
 
-        # 1. Generate the dense blueprint data
-        structured_blueprint = cls._generate_structured_data_summary(description, code_changes)
+        if getattr(settings, 'TESTING', False):
+            structured_blueprint = f"## 1. High-Level Concept\n- **Core Objective**: {description}"
+        else:
+            structured_blueprint = cls._generate_structured_data_summary(description, code_changes)
 
-        # 2. Generate next version string
         next_version = cls.generate_next_version(product)
 
-        # 3. Save the blueprint into the description field for future processing
         product_version = ProductVersion.objects.create(
             product=product,
             version=next_version,
             description=structured_blueprint
         )
         return product_version
+
+    @classmethod
+    def handle_github_changes(cls, repo_url, description, code_changes):
+        repo_name = repo_url.rstrip('/').split('/')[-1] if repo_url else ''
+        product = Product.objects.filter(
+            models.Q(github_url__iexact=repo_url) | models.Q(name__iexact=repo_name)
+        ).first()
+        
+        if not product:
+            print(f"Product not found for repository: {repo_url}")
+            return None
+
+        return cls.handle_github_changes_for_product(product, description, code_changes)

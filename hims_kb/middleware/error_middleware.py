@@ -11,7 +11,7 @@ class ErrorHandlingMiddleware:
     def __call__(self, request):
         return self.get_response(request)
 
-    def process_exception(self, exception):
+    def process_exception(self, request, exception):
         # This triggers only when a view raises an unhandled exception
         logger.error(f"Server Error occurred: {str(exception)}", exc_info=True)
         

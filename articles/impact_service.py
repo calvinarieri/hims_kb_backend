@@ -266,7 +266,7 @@ class ArticleImpactService:
         """Analyze a single article version for impact. This runs in a thread pool."""
         version = candidate["version"]
         article = version.article
-        
+
         # Use semaphore to limit concurrent API calls
         with cls._ANALYSIS_SEMAPHORE:
             prompt = cls._build_impact_prompt(version, change_description)

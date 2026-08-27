@@ -23,6 +23,6 @@ try:
     from django.contrib.postgres.fields import ArrayField
     ArrayField.db_type = lambda self, connection: 'json'
     ArrayField.get_placeholder = lambda self, value=None, compiler=None, connection=None: '%s'
-    ArrayField.get_db_prep_value = lambda self, value, connection, prepared=False: json.dumps(value) if isinstance(value, (list, tuple)) else value
+    ArrayField.get_db_prep_value = lambda self, value, connection, prepared=False: json.dumps([str(v) for v in value]) if isinstance(value, (list, tuple)) else value
 except ImportError:
     pass

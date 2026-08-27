@@ -23,6 +23,10 @@ class SendMessageSerializer(serializers.Serializer):
         required=False, 
         help_text="Product UUID (required if creating a brand new session)"
     )
+    api_key = serializers.CharField(
+        required=False,
+        help_text="Product API Key for authenticating external chatbot integrations"
+    )
     email = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
 
 

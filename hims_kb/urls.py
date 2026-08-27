@@ -24,4 +24,5 @@ urlpatterns = [
     path('docs/', include('articles.urls')),
     path('chat/', include('chat.urls')),
     path('prod/', include('product.urls')),
+    path('github/', include('github.urls')),
 ]

@@ -28,6 +28,7 @@ class ProductVersionArticleSyncTests(TestCase):
             name='General',
             description='General product articles'
         )
+        self.client.force_authenticate(user=self.user)
 
     def test_sync_updates_related_articles_when_product_version_changes(self):
         version = ProductVersion.objects.create(
@@ -176,3 +177,24 @@ class ProductVersionArticleSyncTests(TestCase):
         self.assertIn('email', content_lower)
         self.assertNotIn('email and password', content_lower)
         self.assertIn('log in', content_lower)
+
+    def test_product_auto_keys_and_webhook_url(self):
+        self.client.force_authenticate(user=self.user)
+        res_create = self.client.post('/prod/products/', {
+            'name': 'Pharmacy System',
+            'description': 'Medication dispensary module'
+        }, format='json')
+        self.assertEqual(res_create.status_code, 201)
+        data = res_create.data.get('data', res_create.data)
+
+        self.assertTrue(data['api_key'].startswith('hk_live_'))
+        self.assertTrue(data['api_secret'].startswith('hs_live_'))
+        self.assertTrue(data['webhook_token'].startswith('whk_'))
+        self.assertIn('/github/webhook/whk_', data['github_webhook_url'])
+
+        # Verify GET /prod/products/ returns github_webhook_url
+        res_list = self.client.get('/prod/products/')
+        self.assertEqual(res_list.status_code, 200)
+        products = res_list.data.get('data', res_list.data)
+        item = [p for p in products if p['name'] == 'Pharmacy System'][0]
+        self.assertIn('/github/webhook/', item['github_webhook_url'])
