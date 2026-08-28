@@ -67,7 +67,7 @@ class ArticleImpactService:
         if product_id:
             queryset = queryset.filter(product_version__product_id=product_id)
 
-        versions = list(queryset.exclude(embedding__isnull=True).exclude(embedding=[]).all())
+        versions = list(queryset.exclude(embedding__isnull=True).all())
         if not versions:
             logger.info("No published articles with embeddings found for semantic search.")
             return []
