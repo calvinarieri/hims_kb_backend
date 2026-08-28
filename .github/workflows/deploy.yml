@@ -34,6 +34,16 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run Django Unit Tests
+        env:
+          SECRET_KEY: 'django-insecure-ci-test-key-for-github-actions'
+          DEBUG: 'False'
+          POSTGRES_DB: 'hims_kb_test'
+          POSTGRES_USER: 'hims_kb_user'
+          POSTGRES_PASSWORD: 'hims_kb_password'
+          POSTGRES_HOST: '127.0.0.1'
+          POSTGRES_PORT: '5432'
+          REDIS_HOST: '127.0.0.1'
+          REDIS_PORT: '6379'
         run: |
           python manage.py test articles authentication product github --settings=hims_kb.test_settings
 
