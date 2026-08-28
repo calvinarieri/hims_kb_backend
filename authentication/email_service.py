@@ -86,17 +86,20 @@ class StaffEmailService:
         role_name = user.role.name if user.role else "Staff Member"
         first_name = user.first_name or "Staff Member"
 
+        frontend_base = getattr(settings, 'FRONTEND_URL', '').rstrip('/')
+        login_url = f"{frontend_base}/login" if frontend_base else "/login"
+
         body_html = f"""
         <p>Dear <strong>{first_name}</strong>,</p>
-        <p>Welcome to HIMS KB! An administrator has set up your staff account. Below are your login credentials to access the platform:</p>
-        
-        <!-- Slate-900 Credential Box with Amber-700 border -->
+        <p>Your staff account for the HIMS Knowledge Base platform has been created by an administrator.</p>
+
+        <!-- Slate-900 Box with Amber-700 Accent -->
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 24px 0; background-color: #0f172a; border-left: 4px solid #b45309; border-radius: 8px; color: #ffffff;">
             <tr>
                 <td style="padding: 20px 24px;">
-                    <div style="font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #b45309; font-weight: 700; margin-bottom: 12px;">Account Information</div>
+                    <div style="font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: #b45309; font-weight: 700; margin-bottom: 12px;">Account Credentials</div>
                     <div style="margin-bottom: 8px;"><span style="color: #94a3b8;">Email Address:</span> <strong style="color: #ffffff; padding-left: 8px;">{user.email}</strong></div>
-                    <div style="margin-bottom: 8px;"><span style="color: #94a3b8;">Role:</span> <strong style="color: #ffffff; padding-left: 8px;">{role_name}</strong></div>
+                    <div style="margin-bottom: 8px;"><span style="color: #94a3b8;">Assigned Role:</span> <strong style="color: #ffffff; padding-left: 8px;">{role_name}</strong></div>
                     <div><span style="color: #94a3b8;">Assigned Password:</span> <span style="font-family: monospace; background-color: #1e293b; color: #fbbf24; padding: 4px 8px; border-radius: 4px; font-weight: 700; margin-left: 8px;">{raw_password}</span></div>
                 </td>
             </tr>
@@ -106,7 +109,7 @@ class StaffEmailService:
         <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 28px 0 16px 0;">
             <tr>
                 <td align="center" style="background-color: #b45309; border-radius: 6px;">
-                    <a href="http://localhost:5173/login" target="_blank" style="display: inline-block; padding: 12px 28px; font-size: 15px; color: #ffffff; font-weight: 600; text-decoration: none;">Log In to HIMS Portal</a>
+                    <a href="{login_url}" target="_blank" style="display: inline-block; padding: 12px 28px; font-size: 15px; color: #ffffff; font-weight: 600; text-decoration: none;">Log In to HIMS Portal</a>
                 </td>
             </tr>
         </table>
@@ -122,7 +125,7 @@ class StaffEmailService:
             f"Email: {user.email}\n"
             f"Role: {role_name}\n"
             f"Password: {raw_password}\n\n"
-            f"Log in at: http://localhost:5173/login\n"
+            f"Log in at: {login_url}\n"
         )
 
         cls._send_email(user.email, subject, title, subtitle, body_html, text_message)
@@ -137,6 +140,8 @@ class StaffEmailService:
         subtitle = "An administrator has updated your account password."
 
         first_name = user.first_name or "Staff Member"
+        frontend_base = getattr(settings, 'FRONTEND_URL', '').rstrip('/')
+        login_url = f"{frontend_base}/login" if frontend_base else "/login"
 
         body_html = f"""
         <p>Dear <strong>{first_name}</strong>,</p>
@@ -157,7 +162,7 @@ class StaffEmailService:
         <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 28px 0 16px 0;">
             <tr>
                 <td align="center" style="background-color: #b45309; border-radius: 6px;">
-                    <a href="http://localhost:5173/login" target="_blank" style="display: inline-block; padding: 12px 28px; font-size: 15px; color: #ffffff; font-weight: 600; text-decoration: none;">Log In Now</a>
+                    <a href="{login_url}" target="_blank" style="display: inline-block; padding: 12px 28px; font-size: 15px; color: #ffffff; font-weight: 600; text-decoration: none;">Log In Now</a>
                 </td>
             </tr>
         </table>
@@ -172,7 +177,7 @@ class StaffEmailService:
             f"Your HIMS account password was updated by an administrator.\n\n"
             f"Email: {user.email}\n"
             f"New Password: {new_password}\n\n"
-            f"Log in at: http://localhost:5173/login\n"
+            f"Log in at: {login_url}\n"
         )
 
         cls._send_email(user.email, subject, title, subtitle, body_html, text_message)
